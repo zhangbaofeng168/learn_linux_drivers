@@ -1,0 +1,19 @@
+感光颗粒：
+	只能感应红绿蓝
+	通过放大器放大
+	AD转换
+输出格式：
+RAW，RGB，YUA
+RAW RGB只有红绿蓝三种颜色的数据
+RGB不止有红绿蓝三中，还可以表示红绿蓝组合的颜色
+
+SCCB  i2c总线操作ov9650寄存器
+
+分辨率
+VGA（640x480）QVGA（240*320）CIF（352*288）
+
+
+ The device slave addresses for 
+the OV9650 are 0x60 for write and 0x61 for read
+
+http://wenku.baidu.com/view/9e9386ea998fcc22bcd10db4.html

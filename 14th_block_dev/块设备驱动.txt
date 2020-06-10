@@ -1,0 +1,76 @@
+读写：
+	不能像字符设备那样读写，
+	而是不先执行，先放入队列，优化后执行
+驱动框架：
+
+app：open，read，write "1.txt"
+---------------------------------文件的读写
+
+文件系统：vfat,ext2,ext3
+(把文件的读写转换为扇区的读写)
+--------------ll_rw_block--------------------扇区的读写
+			1.把读写放入队列
+			2.调用队列的处理函数（优化/调顺序/合并）
+	块设备驱动程序
+----------------------------------
+硬件：   硬盘，flash
+
+程序框架：
+	1.分配gendisk结构体
+	block_disk = alloc_disk(16);
+	2.设置
+	2.1分配/设置队列
+	block_queue = blk_init_queue(do_block_request, &xd_lock);
+	block_disk->queue = block_queue;
+	2.2设置gendisk其他信息
+	major = register_blkdev(0,"ramblock");
+	block_disk->major = major;
+	block_disk->first_minor = 0;
+		
+	sprintf(block_disk->disk_name, "ramblock");	
+	block_disk->fops = &block_fops;
+	set_capacity(block_disk,RAMBLOCK_SIZE/512);//容量
+	
+	3.注册：add_disk
+	add_disk(block_disk);
+
+队列处理函数
+static void do_block_request(struct request_queue * q)
+{
+	//static int cnt = 0;
+	struct request *req;
+	//printk("do_ramblock_request %d\n",++cnt);
+	req = blk_fetch_request(q);
+	while(req)
+	{
+		/*1.源/目地*/
+		unsigned long offset = blk_rq_pos(req) << 9;
+		/*2.目的*/
+		//req->buffer
+		/*3.长度*/
+		unsigned long len  = blk_rq_cur_bytes(req);
+		
+		if (rq_data_dir(req) == READ)
+			memcpy(req->buffer,rambloak_buf + offset, len);
+		else
+			memcpy(rambloak_buf + offset, req->buffer, len);
+			
+		if (!__blk_end_request_cur(req, 0))
+			req = blk_fetch_request(q);
+	} 
+}
+
+static int ramblock_getgeo(struct block_device *bdev, struct hd_geometry *geo)
+{
+	/* 容量=heads*cylinders*sectors*512 */
+	geo->heads     = 2;
+	geo->cylinders = 32;
+	geo->sectors   = RAMBLOCK_SIZE/2/32/512;
+	return 0;
+}
+//操作函数集合
+static const struct block_device_operations block_fops = {
+	.owner	= THIS_MODULE,
+	//.locked_ioctl	= xd_ioctl,
+	.getgeo = ramblock_getgeo,
+};

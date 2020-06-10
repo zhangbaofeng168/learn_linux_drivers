@@ -1,0 +1,46 @@
+/**********参考内核usbmouse.c**********/
+static struct usb_driver myusb_mouse_driver = {
+	.name		= "myusbmouse",
+	.probe		= myusb_mouse_probe,
+	.disconnect	= myusb_mouse_disconnect,
+	.id_table	= myusb_mouse_id_table,
+};
+
+注册一个usb_driver结构体
+usb_register(&myusb_mouse_driver);
+usb_deregister(&myusb_mouse_driver);
+
+myusb_mouse_probe：
+	1.分配input_dev结构体
+	2.设置
+	3.注册
+	4.硬件相关
+	/*数据传输3要素*/
+		
+		/*1.源: USB设备的某个端点*/
+		pipe = usb_rcvintpipe(dev, endpoint->bEndpointAddress);
+		
+		/*2.长度：*/
+		len = endpoint->wMaxPacketSize;
+		
+		/*3.目的：*/
+		usb_buf = usb_alloc_coherent(dev, len, GFP_ATOMIC, &usb_buf_phys);
+		/**使用三要素**/
+		/*******分配urb 结构体*******/
+		uk_urb = usb_alloc_urb(0,GFP_KERNEL);
+		/*********初始化结构体*********/
+		usb_fill_int_urb(uk_urb, dev, pipe, usb_buf, len, usbmouse_irq, NULL, endpoint->bInterval);
+		uk_urb->transfer_dma    = usb_buf_phys;
+		uk_urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+		
+		/**使用urb*/
+		usb_submit_urb(uk_urb,GFP_KERNEL);
+		
+	static void usbmouse_irq(struct urb *urb)
+	{
+		/***上报事件**/
+		input_event(usb_input_dev, EV_KEY, KEY_L,(usb_buf[1] & (1<<0))?1:0);
+		input_sync(usb_input_dev);
+		/**重新申请urb*/
+		usb_submit_urb(uk_urb,GFP_KERNEL);
+	}

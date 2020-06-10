@@ -1,0 +1,48 @@
+poll机制：
+
+1. poll > sys_poll > do_sys_poll >poll_initwait，poll_initwait函数注册一下回调函数__pollwait，它就是我们的驱动程序执行poll_wait时，真正被调用的函数。
+
+ 
+
+2. 接下来执行file->f_op->poll，即我们驱动程序里自己实现的poll函数
+
+   它会调用poll_wait把自己挂入某个队列，这个队列也是我们的驱动自己定义的；
+
+   它还判断一下设备是否就绪。
+
+ 
+
+3. 如果设备未就绪，do_sys_poll里会让进程休眠一定时间，这个时间是应用提供的“超时时间”
+
+ 
+
+4. 进程被唤醒的条件有2：一是上面说的“一定时间”到了，二是被驱动程序唤醒。驱动程序发现条件就绪时，
+	就把“某个队列”上挂着的进程唤醒，这个队列，就是前面通过poll_wait把本进程挂过去的队列。
+
+ 
+
+5. 如果驱动程序没有去唤醒进程，那么chedule_timeout(__timeou)超时后，会重复2、3动作1次，直到应用程序的poll调用传入的时间到达， 然后返回。
+
+static DECLARE_WAIT_QUEUE_HEAD(button_waitq);// 生成一个等待队列头
+在Linux内核中等待队列有很多用途，可用于中断处理、进程同步及定时。
+我们在这里只说，进程经常必须等待某些事件的发生。
+等待队列实现了在事件上的条件等待: 希望等待特定事件的进程把自己放进合适的等待队列，并放弃控制全。
+因此，等待队列表示一组睡眠的进程，当某一条件为真时，由内核唤醒它们。
+
+等待队列由循环链表实现，其元素包括指向进程描述符的指针。
+每个等待队列都有一个等待队列头(wait queue head),等待队列头是一个类型为wait_queue_head_t的数据结构
+
+static const struct file_operations keydev_fops = {
+
+	.poll		=  button_poll,
+};
+unsigned int button_poll(struct file *filp, struct poll_table_struct *wait)
+{
+	unsigned int mask = 0;
+	poll_wait(filp,&button_waitq,wait);//把当前进程放入队列
+	
+	if(ev_press)
+		mask = POLLIN | POLLRDNORM;//如果有时间则唤醒进程，否则mask=0
+	
+	return mask; 
+}

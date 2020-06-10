@@ -1,0 +1,80 @@
+//参考内核S3c2410fb.c
+lcd驱动框架：
+	/*1.分配一个fb_info结构体*/
+	info = framebuffer_alloc(0,NULL);
+	
+	/*2.设置*/
+	//2.1设置固定的参数
+	info->fix----
+	//2.2设置可变的参数
+	info->var--
+	//2.3设置可操作函数
+	info->fbops           = &s5fb_ops;
+	static struct fb_ops s5fb_ops = {
+	.owner		= THIS_MODULE,
+	.fb_setcolreg	= s5_lcdfb_setcolreg,//调色板函数
+	.fb_fillrect	= cfb_fillrect, //下面三个操作函数由内核提供
+	.fb_copyarea	= cfb_copyarea,
+	.fb_imageblit	= cfb_imageblit,
+	};
+	//2.4其他设置
+	info->pseudo_palette   = pseudo_palette;  //调色板
+	//
+	info->screen_size      =  800*480*32/8;
+	
+	/*3.硬件相关的设置*/
+	//3.1设置相关的gpio用于lcd
+	//3.2设置lcd控制器
+	 结合s5pv210芯片手册和lcd芯片手册进行设置
+	 //3.3分配framebuffer显存,并把地址告诉lcd控制器
+	 info->screen_base    = dma_alloc_writecombine(NULL, info->fix.smem_len, &info->fix.smem_start, GFP_KERNEL); //显存的虚拟地址
+	
+	*vidw00add0b0 =  info->fix.smem_start; //告诉lcd控制器
+	*vidw00add1b0 =  *vidw00add0b0 + frame_buffer_size;
+	//3.4硬件使能lcd
+	*shodowcon = 0x1;	/* Enables Channel 0 */
+	*gpd0dat |= 1;
+	*vidcon0 |= 0x3;
+	*wincon0 |= 1;
+	/*4.注册*/
+	register_framebuffer(info);
+	
+	/*5.注销*/
+	unregister_framebuffer(info);
+	dma_free_writecombine(NULL, info->fix.smem_len, info->screen_base, info->fix.smem_start);
+	*shodowcon = 0x0;	/* Enables Channel 0 */
+	*gpd0dat &= ~(0x1);
+	*vidcon0 &= ~(0x3);
+	*wincon0 &= ~(0x1);
+	iounmap();
+	
+调色板：
+	/* from pxafb.c */
+	static unsigned long pseudo_palette[16];
+	
+	static inline unsigned int chan_to_field(unsigned int chan, struct fb_bitfield *bf)
+	{
+		chan &= 0xffffff;
+		chan >>= 16 - bf->length;
+		return chan << bf->offset;
+	}
+	
+	static int s5_lcdfb_setcolreg(unsigned int regno, unsigned int red,
+				     unsigned int green, unsigned int blue,
+				     unsigned int transp, struct fb_info *info)
+	{
+		unsigned int val;
+		
+		if (regno > 16)
+			return 1;
+	
+		/* 用red,green,blue三原色构造出val */
+		val  = chan_to_field(red,	&info->var.red);
+		val |= chan_to_field(green, &info->var.green);
+		val |= chan_to_field(blue,	&info->var.blue);
+		
+		//((u32 *)(info->pseudo_palette))[regno] = val;
+		pseudo_palette[regno] = val;
+		return 0;
+	}
+	

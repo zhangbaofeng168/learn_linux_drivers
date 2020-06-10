@@ -1,0 +1,88 @@
+/*
+单片机下中断处理
+1-3：
+1.分辨那个中断
+2.调用处理函数
+3.清中断
+*/
+linux
+1.异常向量
+	trap_init 构造
+	b 
+	b vector_irq 计算返回地址，保存环境
+2.vector_irq
+	b irq_handle
+	
+3.irq_handle
+	b do_asm_irq	
+	
+	desc->handle_irq //实现1-3
+	
+//**程序框架*//
+1.向内核注册中断request_irq(unsigned int irq,irq_handler_thandler,unsignedlongflags,constchar*name,void*dev);
+	在发生对应于第 1个参数 irq 的中断时，则调用第 2 个参数handler 为要注册的中断服务函数(也就是把 handler() 中断服务函数注册到内核中 )。
+	
+	第 3 个参数 flags 指定了快速中断或中断共享等中断处理属性。在 2.6 教新的内核里(我的是 2.6.27 ~ 2.6.31 )，在 linux/interrupt.h 中定义操作这个参数的宏如下：
+	引用
+	/*
+	 * These correspond to the IORESOURCE_IRQ_* defines in
+	 * linux/ioport.h to select the interrupt line behaviour.  When
+	 * requesting an interrupt without specifying a IRQF_TRIGGER, the
+	 * setting should be assumed to be "as already configured", which
+	 * may be as per machine or firmware initialisation.
+	
+	#define IRQF_TRIGGER_NONE0x00000000
+	#define IRQF_TRIGGER_RISING 0x00000001
+	#define IRQF_TRIGGER_FALLING 0x00000002   
+	#define IRQF_TRIGGER_HIGH 0x00000004                  指定中断触发类型：高电平有效。新增加的标志 
+	#define IRQF_TRIGGER_LOW 0x00000008
+	#define IRQF_TRIGGER_MASK (IRQF_TRIGGER_HIGH | IRQF_TRIGGER_LOW | \
+	IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)
+	#define IRQF_TRIGGER_PROBE 0x00000010
+	/*
+	* These flags used only by the kernel as part of the  irq handling routines.
+	*                registered first in an shared interrupt is considered for
+	*                performance reasons)
+	*/
+	#define IRQF_DISABLED           0x00000020        * IRQF_DISABLED - keep irqs disabled when calling the action handler
+	#define IRQF_SAMPLE_RANDOM      0x00000040* IRQF_SAMPLE_RANDOM - irq is used to feed the random generator
+	#define IRQF_SHARED             0x00000080* IRQF_SHARED - allow sharing the irq among several devices
+	#define IRQF_PROBE_SHARED       0x00000100* IRQF_PROBE_SHARED - set by callers when they expect sharing mismatches to occur
+	#define IRQF_TIMER              0x00000200* IRQF_TIMER - Flag to mark this interrupt as timer interrupt
+	#define IRQF_PERCPU             0x00000400* IRQF_PERCPU - Interrupt is per cpu
+	#define IRQF_NOBALANCING        0x00000800* IRQF_NOBALANCING - Flag to exclude this interrupt from irq balancing
+	#define IRQF_IRQPOLL            0x00001000* IRQF_IRQPOLL - Interrupt is used for polling (only the interrupt that is
+	早期一点的 2.6 内核这里一般以 SA_ 前缀开头，如：
+	SA_INTERRUPT   表示禁止其他中断；(对应于 IRQF_DISABLED )
+	SA_SHIRQ             表示共享相同的中断号 (对应于 IRQF_SHARED )
+	SA_SAMPLE_RANDOM   此宏会影响到 RANDOM 的处理( 对应于 IRQF_SAMPLE_RANDOM )。
+	
+	第 4 个参数 name，通常是设备驱动程序的名称。改值用在 /proc/interrupt 系统 (虚拟) 文件上，或内核发生中断错误时使用。
+	
+	第 5 个参数 dev_id 中断名称 可作为共享中断时的中断区别参数，也可以用来指定中断服务函数需要参考的数据地址。建议将设备结构指针作为dev_id参数
+	
+	eg:request_irq(IRQ_EINT(0),buttons_irq, IRQF_TRIGGER_FALLING|IRQ_TYPE_EDGE_RISING, "key1", &pins_desc[0]);
+2.实现中断执行函数
+static irqreturn_t buttons_irq(int irq, void *dev_id)
+｛
+	/***
+	
+	事件处理
+	
+	/
+	ev_press = 1;                  /* 表示中断发生了 */
+    	wake_up_interruptible(&button_waitq);   /* 唤醒休眠的进程 */
+    	
+    	return IRQ_RETVAL(IRQ_HANDLED);
+｝
+3.休眠,等待动作
+wait_event_interruptible(button_waitq, ev_press);//static DECLARE_WAIT_QUEUE_HEAD(button_waitq);定义button_waitq
+ev_press = 0;  //中断事件标志清0 static volatile int ev_press = 0;定义ev_press
+4.释放中断
+free_irq(IRQ_EINT(0), &pins_desc[0]);
+
+中断里不能使用sleep，不能用（COPY_TO 或 COPY_FROM）交换用户空间
+
+
+信号量：休眠等待（躺着等）等待时间长
+自旋锁：短暂等待（站着等）等待时间短 频率高 中断里面可以用自旋锁

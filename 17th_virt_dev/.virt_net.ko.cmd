@@ -1,0 +1,1 @@
+cmd_/work/tq210_dev_test/17th_dm9000_dev/virt_net.ko := arm-linux-ld -EL -r  -T /work/my_kernel/linux/scripts/module-common.lds --build-id -o /work/tq210_dev_test/17th_dm9000_dev/virt_net.ko /work/tq210_dev_test/17th_dm9000_dev/virt_net.o /work/tq210_dev_test/17th_dm9000_dev/virt_net.mod.o

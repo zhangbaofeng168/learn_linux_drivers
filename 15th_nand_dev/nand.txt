@@ -1,0 +1,56 @@
+nand flash是一个存储芯片
+那么：这样的操作很合理“读地址A的数据，把数据B写到地址A”
+
+问1.原理图和s3c2440之间只有数据线怎么传输地址？
+
+答1：在data0~data7上即传输数据又传输地址
+     当ALE为高电平的时候传输的是地址
+     当ALE为低电平的时候传输的是数据
+
+问2.从nandflash芯片手册可知，要操作nandflash需要先发出命令
+    怎样传入命令？
+    
+答2. 在data0~data7上即传输数据又传输地址
+     当ALE为高电平的时候传输的是地址
+     当CLE为高电平时传输的是命令
+     
+     当ALE和CLE为低电平的时候传输的是数据
+     
+问3.怎样判断nandflash完成烧写
+
+答：通过RNB判断，RnB为高电平表示就绪，为低电平忙
+
+问4.怎么操作nandflasf
+
+答：    
+
+发出命令  选中
+	  CLE为高电平，
+	  在data0~data7上输出命令值
+	  发出写脉冲
+	  取消片选
+	  
+发出地址  选中
+	  ALE为高电平，
+	  在data0~data7上输出地址值
+	  发出写脉冲
+	  取消片选
+	  
+写数据	  选中
+	  CLE和ALE为低电平，
+	  在data0~data7上输出数据值
+	  发出写脉冲
+	  取消片选
+	  
+读数据	  选中
+	  发出读脉冲
+	  读data0~data7上数据值
+	  取消片选
+	  
+用uboot体验nand操作
+
+1.读id
+选中       	NFCONT  R/W, Address = 0xB0E00004
+发命令90H  	NFCMMD, R/W, Address = 0xB0E00008
+发地址00H	NFADDR, R/W, Address = 0xB0E0000C
+读数据		NFDATA, R/W, Address = 0xB0E00010

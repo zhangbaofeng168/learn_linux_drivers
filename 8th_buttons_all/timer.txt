@@ -1,0 +1,49 @@
+定时器：
+	1.超时时间
+	2.处理函数
+	
+1.static struct timer_list button_timer;声明定时器结构体
+2.
+	init_timer(&button_timer);//初始化
+	button_timer.function = buttons_timer_function;//声明定时器执行函数
+	add_timer(&buttons_timer); //添加定时器
+3.//通过按键中断重新设置定时器的值
+static irqreturn_t buttons_irq(int irq, void *dev_id)
+{
+	
+	/* 10ms后启动定时器 */
+	irq_pd = (struct pin_desc *)dev_id;
+	mod_timer(&buttons_timer, jiffies+HZ/100);//设定定时器的值
+	
+	
+	return IRQ_RETVAL(IRQ_HANDLED);
+}
+
+4.定时时间到
+/**定时器处理函数*/
+static void buttons_timer_function(unsigned long data)
+{
+	struct pin_desc * pindesc = irq_pd;
+	unsigned int pinval;
+	
+	pinval = gpio_get_value(pindesc->pin);
+
+	if (pinval)
+	{
+		/* 松开 */
+		key_val = 0x80 | pindesc->key_val;
+	}
+	else
+	{
+		/* 按下 */
+		key_val = pindesc->key_val;
+	}
+
+    	ev_press = 1;                  /* 表示中断发生了 */
+    	wake_up_interruptible(&button_waitq);   /* 唤醒休眠的进程 */
+	kill_fasync (&button_async, SIGIO, POLL_IN);
+}
+5.
+在exit函数中删除定时器
+del_timer(&buttons_timer);//未到定时时间删除，不会执行回调函数，
+				正在执行回调函数删除定时器，会执行完回调函数

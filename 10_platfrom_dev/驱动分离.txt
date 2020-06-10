@@ -1,0 +1,4 @@
+1.设备相关 硬件
+platform_device  platform_device_register    platform_device_unregister
+2.驱动相关 纯软件
+platform_driver  platform_driver_register    platform_driver_unregister

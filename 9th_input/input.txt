@@ -1,0 +1,34 @@
+输入子系统框架:
+
+input_init:err = register_chrdev(INPUT_MAJOR, "input", &input_fops);
+//只有du函数
+static const struct file_operations input_fops = {
+	.owner = THIS_MODULE,
+	.open = input_open_file,
+	.llseek = noop_llseek,
+};
+程序：
+1.分配iput_dev结构体
+static struct input_dev *buttons_dev;
+
+/* 1. 分配一个input_dev结构体 */
+	buttons_dev = input_allocate_device();;
+
+	/* 2. 设置 */
+	/* 2.1 能产生哪类事件 */
+	set_bit(EV_KEY, buttons_dev->evbit);
+	set_bit(EV_REP, buttons_dev->evbit);
+	
+	/* 2.2 能产生这类操作里的哪些事件: L,S,ENTER,LEFTSHIT */
+	set_bit(KEY_L, buttons_dev->keybit);
+	set_bit(KEY_S, buttons_dev->keybit);
+	set_bit(KEY_ENTER, buttons_dev->keybit);
+	set_bit(KEY_LEFTSHIFT, buttons_dev->keybit);
+	/* 3. 注册 */
+	input_register_device(buttons_dev);
+	/* 4. 注销 */
+	input_free_device(buttons_dev);	
+
+2.上传事件
+input_event(buttons_dev, EV_KEY, pindesc->key_val, 0);
+  input_sync(buttons_dev);

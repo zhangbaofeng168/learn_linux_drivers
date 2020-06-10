@@ -1,0 +1,39 @@
+字符设备： 
+	结构体 ：cdev
+	｛
+		const struct file_operation; //操作函数集
+	 	uint count; //设备数 
+	 	dev_t  dev;      //设备号 unsigned int 类型 高12位主设备号 低20位次设备号
+	 ｝
+	 主设备号：字符文件与字符驱动对应
+	 次设备号：串口1，串口2，区分同类型的设备
+	 主设备号分配：
+	 	1.静态分配
+	 	2.动态分配
+	 设备号注销：
+	 	unregister_chrdev_regio
+驱动模型：
+	1.驱动初始化：
+		分配cdev  //静态分配，动态分配
+		初始化cdev //cdev_init(struct *cdev,const struct file_operation);
+		注册cdev	//cdev_add(struct cdev *p,dev_t dev，);
+		硬件初始化
+	2.实现设备操作
+		设备方法：
+			open
+			read
+			write
+			close
+	3.驱动注销
+		cdev_del
+		
+注册字符设备驱动：
+	register_chrdev(0,"",);
+	第一个参数为0，自动分配最大的未使用设备号
+	class_creat()
+	device_creat();
+	MKDEV(major,minor);
+
+init和exit 先注册 后释放
+	
+	 
